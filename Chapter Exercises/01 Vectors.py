@@ -115,6 +115,23 @@ class vectorWalker:
     def show(self):
         self.window.set_at((self.position.x, self.position.y), self.color)
 
+class vectorAccelerator:
+    def __init__(self, window, position = (0,0), velocity = (1,1), color = (0,0,0)):
+        self.window = window
+        self.position = Vector(position[0],position[1])
+        self.velocity = Vector(velocity[0],velocity[1])
+        self.color = color
+        self.topSpeed = 10
+        self.acceleration = Vector(0,0)
+
+    def move(self):
+        self.velocity.addVector(self.acceleration)
+        self.velocity.limit(self.topSpeed)
+        self.position.addVector(self.velocity)
+
+    def show(self):
+        self.window.set_at((self.position.x, self.position.y), self.color)
+
 def draw(walkers):
     for walker in walkers:
         walker.move()
