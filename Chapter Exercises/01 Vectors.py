@@ -1,4 +1,5 @@
-import math, random, pygame
+import math, random, pygame, noise
+
 
 class Vector:
     def __init__(self, x, y, z = None):
@@ -73,7 +74,7 @@ class Vector:
             self.x = max
         if self.y > max:
             self.y = max
-        if self.z > max:
+        if self.z and self.z > max:
             self.z = max
 
 class vectorWalker:
@@ -116,17 +117,57 @@ class vectorWalker:
         self.window.set_at((self.position.x, self.position.y), self.color)
 
 class vectorAccelerator:
-    def __init__(self, window, position = (0,0), velocity = (1,1), color = (0,0,0)):
+    def __init__(self, window, position = (0,0), velocity = (1,1), color = (0,0,0),
+                 topSpeed = 10):
         self.window = window
         self.position = Vector(position[0],position[1])
         self.velocity = Vector(velocity[0],velocity[1])
         self.color = color
-        self.topSpeed = 10
+        self.topSpeed = topSpeed
         self.acceleration = Vector(0,0)
 
     def move(self):
+        self.acceleration = Vector(random.uniform(-1,1)*0.1, random.uniform(-1,1)*0.1)
         self.velocity.addVector(self.acceleration)
         self.velocity.limit(self.topSpeed)
+        self.position.addVector(self.velocity)
+
+    def show(self):
+        self.window.set_at((self.position.x, self.position.y), self.color)
+
+class perlinAccelerator:
+    def __init__(self, window, position = (0,0), velocity = (1,1), color = (0,0,0),
+                 topSpeed = 10, noise = 0.01):
+        self.window = window
+        self.position = Vector(position[0],position[1])
+        self.velocity = Vector(velocity[0],velocity[1])
+        self.color = color
+        self.topSpeed = topSpeed
+        self.acceleration = Vector(0,0)
+        self.noise = noise
+        self.tx = 10
+        self.ty = 1
+
+    def range_map(self, value, base_range = (0,1), target_range = (0,10)):
+
+        new = (target_range[0] +
+               ((value - base_range[0]) * (target_range[1]-target_range[0])) /
+               (base_range[1]-base_range[0]))
+
+        return new
+
+    def move(self):
+        accVec = Vector(self.range_map(noise.pnoise1(self.tx), target_range=(-0.001,
+                                                                             0.001)),
+                        self.range_map(noise.pnoise1(self.ty), target_range=(-0.001,
+                                                                             0.001)))
+
+        self.acceleration.addVector(accVec)
+        self.tx += self.noise
+        self.ty += self.noise
+        self.velocity.addVector(self.acceleration)
+        self.velocity.limit(self.topSpeed) # this is the problem
+        # once the velocity hits the max, it only ever stays at the max
         self.position.addVector(self.velocity)
 
     def show(self):
@@ -140,16 +181,22 @@ def draw(walkers):
 if __name__ == "__main__":
     # Initialize PyGame
     pygame.init()
+    WIDTH = 1000
+    HEIGHT = 700
 
     # Set up the game window
-    window = pygame.display.set_mode((1000, 700))
+    window = pygame.display.set_mode((WIDTH, HEIGHT))
     window.fill((255, 255, 255))
     pygame.display.set_caption("Vector Walker Simulation")
 
     # Game loop
-    vw1 = vectorWalker(window, (500, 350), (3,3), (0.001, 0.005), color = (0,0,200))
+    #vw1 = vectorWalker(window, (500, 350), (3,3), (0.001, 0.005), color = (0,0,200))
+    vw2 = vectorAccelerator(window, (WIDTH/2, HEIGHT/2), (0.1, 0.1), color=(0, 0, 200),
+                            topSpeed=3)
+    vw3 = perlinAccelerator(window, (WIDTH / 2, HEIGHT / 2), (1, 1), color=(200, 0, 200),
+                            noise = 0.0001, topSpeed=1)
 
-    walkers = [vw1]
+    walkers = [vw2, vw3]
     clock = pygame.time.Clock()
 
     running = True
@@ -159,7 +206,7 @@ if __name__ == "__main__":
                 running = False
 
         draw(walkers)
-        vw1.speed_up()
+        # vw1.speed_up()
         pygame.display.flip()
         clock.tick(100)
 
