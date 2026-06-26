@@ -51,6 +51,32 @@ class Vector:
         if self.z:
             self.z = self.z/n
 
+    @staticmethod
+    def vectorAddition(u, v):
+        wx = u.x + v.x
+        wy = u.y + v.y
+        if u.z and v.z:
+            wz = u.z + v.z
+            w = Vector(wx, wy, wz)
+        else:
+            w = Vector(wx, wy)
+        return w
+
+    @staticmethod
+    def vectorSubtraction(u, v):
+        if isinstance(u, tuple):
+            u = Vector(u[0],u[1])
+        if isinstance(v, tuple):
+            v = Vector(v[0],v[1])
+        wx = u.x - v.x
+        wy = u.y - v.y
+        if u.z and v.z:
+            wz = u.z - v.z
+            w = Vector(wx, wy, wz)
+        else:
+            w = Vector(wx, wy)
+        return w
+
     def magnitude(self):
         sumsq = self.x*self.x + self.y*self.y
         if self.z:
@@ -131,6 +157,15 @@ class vectorAccelerator:
         self.velocity.addVector(self.acceleration)
         self.velocity.limit(self.topSpeed)
         self.position.addVector(self.velocity)
+        # Wrap to other side of screen
+        if self.position.x > self.window.get_width():
+            self.position.x = 0
+        if self.position.x < 0:
+            self.position.x = self.window.get_width()
+        if self.position.y > self.window.get_height():
+            self.position.y = 0
+        if self.position.y < 0:
+            self.position.y = self.window.get_height()
 
     def show(self):
         self.window.set_at((self.position.x, self.position.y), self.color)
@@ -145,10 +180,11 @@ class perlinAccelerator:
         self.topSpeed = topSpeed
         self.acceleration = Vector(0,0)
         self.noise = noise
-        self.tx = 10
+        self.tx = 2
         self.ty = 1
 
-    def range_map(self, value, base_range = (0,1), target_range = (0,10)):
+    @staticmethod
+    def range_map(value, base_range = (0,1), target_range = (0,10)):
 
         new = (target_range[0] +
                ((value - base_range[0]) * (target_range[1]-target_range[0])) /
@@ -157,17 +193,45 @@ class perlinAccelerator:
         return new
 
     def move(self):
-        accVec = Vector(self.range_map(noise.pnoise1(self.tx), target_range=(-0.001,
-                                                                             0.001)),
-                        self.range_map(noise.pnoise1(self.ty), target_range=(-0.001,
-                                                                             0.001)))
+        accVec = Vector(self.range_map(noise.pnoise1(self.tx), target_range=(-.1,.1)),
+                        self.range_map(noise.pnoise1(self.ty), target_range=(-.1,.1)))
 
         self.acceleration.addVector(accVec)
         self.tx += self.noise
         self.ty += self.noise
         self.velocity.addVector(self.acceleration)
-        self.velocity.limit(self.topSpeed) # this is the problem
-        # once the velocity hits the max, it only ever stays at the max
+        self.velocity.limit(self.topSpeed)
+        self.position.addVector(self.velocity)
+        # Wrap to other side of screen
+        if self.position.x > self.window.get_width():
+            self.position.x = 0
+        if self.position.x < 0:
+            self.position.x = self.window.get_width()
+        if self.position.y > self.window.get_height():
+            self.position.y = 0
+        if self.position.y < 0:
+            self.position.y = self.window.get_height()
+
+    def show(self):
+        self.window.set_at((self.position.x, self.position.y), self.color)
+
+class mouseAccelerator:
+    def __init__(self, window, position = (0,0), velocity = (0,0), color = (0,0,0),
+                 topSpeed = 10):
+        self.window = window
+        self.position = Vector(position[0],position[1])
+        self.velocity = Vector(velocity[0],velocity[1])
+        self.acceleration = Vector(0,0)
+        self.color = color
+        self.topSpeed = topSpeed
+
+    def move(self):
+        direction = Vector.vectorSubtraction(pygame.mouse.get_pos(), self.position)
+        direction.normalize()
+        direction.multScalar(0.5)
+        self.acceleration = direction
+        self.velocity.addVector(self.acceleration)
+        self.velocity.limit(self.topSpeed)
         self.position.addVector(self.velocity)
 
     def show(self):
@@ -193,10 +257,12 @@ if __name__ == "__main__":
     #vw1 = vectorWalker(window, (500, 350), (3,3), (0.001, 0.005), color = (0,0,200))
     vw2 = vectorAccelerator(window, (WIDTH/2, HEIGHT/2), (0.1, 0.1), color=(0, 0, 200),
                             topSpeed=3)
-    vw3 = perlinAccelerator(window, (WIDTH / 2, HEIGHT / 2), (1, 1), color=(200, 0, 200),
-                            noise = 0.0001, topSpeed=1)
+    vw3 = perlinAccelerator(window, (WIDTH / 2, HEIGHT / 2), (.1, .1),
+                            color=(200, 0, 200),
+                            noise = 0.03, topSpeed=1)
+    vw4 = mouseAccelerator(window, (WIDTH/3, HEIGHT/3), color = (0,200,0), topSpeed=5)
 
-    walkers = [vw2, vw3]
+    walkers = [vw2, vw3, vw4]
     clock = pygame.time.Clock()
 
     running = True
